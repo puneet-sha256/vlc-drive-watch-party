@@ -8,9 +8,9 @@ The common server carries only small room and playback messages. It has no Googl
 
 ## Windows installer
 
-Install `VLC-Drive-Watch-Party-Setup-0.1.1.exe` and open **VLC Drive Watch Party** from Start or its desktop shortcut. The installer is per-user for Windows 10 (2004+) / Windows 11 x64 and includes Node.js, the companion and its Google application settings. No terminal, npm, or `.env` editing is needed.
+Install `VLC-Drive-Watch-Party-Setup-0.1.2.exe` and open **VLC Drive Watch Party** from Start or its desktop shortcut. The installer is per-user for Windows 10 (2004+) / Windows 11 x64 and includes Node.js, the companion and its Google application settings. No terminal, npm, or `.env` editing is needed.
 
-Version 0.1.1 changes the synchronization protocol. Update **every viewer, including the host**, before creating a new party; older clients cannot join the new protocol. Updating a running installation closes its party, so install between sessions.
+Versions 0.1.1 and later use synchronization protocol 2; version 0.1.0 cannot join these parties. Version 0.1.2 fixes rejoining by waiting for VLC's replacement input to load and pause before aligning it, rather than accepting the previous input's position. Update **every viewer, including the host**, to receive the fix. Updating a running installation closes its party, so install between sessions.
 
 Install standard desktop [VLC](https://www.videolan.org/vlc/) separately if the application asks. VLC is deliberately not redistributed or modified. The browser provides the controls; VLC displays the movie. Closing the browser tab keeps the app running. Double-click the tray icon or launch the shortcut again to reopen it; **Quit** ends the party and stops only this app's VLC/tunnel processes.
 
@@ -156,7 +156,7 @@ npm.cmd run package:windows
 npm.cmd run test:installer
 ```
 
-Output: `artifacts\VLC-Drive-Watch-Party-Setup-0.1.1.exe`, with a SHA-256 sidecar and payload inventory. Only the four allowlisted Google application settings are copied out of `.env`. Production dependencies retain their licenses; the bundled Node license is included. FFmpeg and other development dependencies are excluded.
+Output: `artifacts\VLC-Drive-Watch-Party-Setup-0.1.2.exe`, with a SHA-256 sidecar and payload inventory. Only the four allowlisted Google application settings are copied out of `.env`. Production dependencies retain their licenses; the bundled Node license is included. FFmpeg and other development dependencies are excluded.
 
 The packager intentionally refuses to merge an old `artifacts\payload` into a new build: rename that staging directory before rebuilding. `INNO_SETUP_COMPILER` may specify a nonstandard `ISCC.exe` location. Installer verification refuses to replace an existing installed copy and uses a temporary installation, isolated data/ports and a browser test double; it checks startup, authorized APIs, single-instance reopening, owned-process cleanup and uninstall. It does not authenticate real Google accounts.
 

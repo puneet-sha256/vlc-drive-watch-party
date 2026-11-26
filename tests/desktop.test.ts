@@ -195,3 +195,62 @@ test("missing VLC still permits desktop setup, and local tunnel controls require
   } finally { await companion.close(); }
   await assert.rejects(vlc.start(), /shutting down/);
 });
+
+class LoadingVlc extends Vlc {
+  commands: string[] = [];
+  reads = 0;
+  switched = false;
+  keepOldInput = false;
+  onOpen?: () => void;
+  onRead?: () => void;
+  private opening = false;
+  private paused = false;
+  constructor() { super("synthetic-only"); }
+  override async start() {}
+  override async request(command?: string) {
+    if (command) this.commands.push(command);
+    if (command === "in_play") { this.opening = true; this.onOpen?.(); }
+    if (command === "pl_forcepause") {
+      assert.equal(this.switched, true, "must not pause the stale input");
+      this.paused = true;
+    }
+    if (!command && this.opening) {
+      this.onRead?.();
+      this.reads++;
+      if (!this.keepOldInput && this.reads >= 3) this.switched = true;
+    }
+    return this.switched
+      ? { currentplid: 4, state: this.paused ? "paused" : "playing", length: 36, position: 0 }
+      : this.reads === 2 && !this.keepOldInput
+        ? { currentplid: 4, state: "opening", length: 0, position: 0 }
+        : { currentplid: 3, state: "paused", length: 36, position: 8 / 36 };
+  }
+}
+
+test("VLC open waits for a new ready input and pauses it before returning", async () => {
+  const vlc = new LoadingVlc();
+  await vlc.open("http://127.0.0.1/synthetic-media");
+  assert.ok(vlc.reads >= 4, "old metadata and an opening input must not satisfy readiness");
+  const state = await vlc.status();
+  assert.equal(state.raw.currentplid, 4);
+  assert.equal(state.playing, false);
+  assert.equal(state.position, 0);
+  assert.deepEqual(vlc.commands, ["in_play", "pl_forcepause"]);
+});
+
+test("VLC open times out rather than accepting old input metadata", async t => {
+  let now = 0;
+  t.mock.method(Date, "now", () => now);
+  const vlc = new LoadingVlc();
+  vlc.keepOldInput = true;
+  vlc.onRead = () => { now += 5000; };
+  await assert.rejects(vlc.open("http://127.0.0.1/synthetic-media"), /media.*ready/i);
+  assert.equal(vlc.commands.includes("pl_forcepause"), false);
+});
+
+test("closing VLC during media loading cancels readiness without pausing or resuming it", async () => {
+  const vlc = new LoadingVlc();
+  vlc.onOpen = () => vlc.dispose();
+  await assert.rejects(vlc.open("http://127.0.0.1/synthetic-media"), /cancelled|shutting down/i);
+  assert.deepEqual(vlc.commands, ["in_play"]);
+});

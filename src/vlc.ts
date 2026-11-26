@@ -24,6 +24,7 @@ async function freePort(): Promise<number> {
 }
 export class Vlc {
   private disposed = false;
+  private generation = 0;
   private child?: ChildProcess;
   private origin = "";
   private password = secret();
@@ -72,12 +73,45 @@ export class Vlc {
     const duration = Number(raw.length) || 0;
     return { playing: raw.state === "playing", position: duration ? Number(raw.position) * duration : Number(raw.time) || 0, duration, raw };
   }
-  public async open(url: string): Promise<void> { await this.start(); await this.request("in_play", url); await this.pause(); }
+  public async open(url: string): Promise<void> {
+    await this.start();
+    const generation = ++this.generation;
+    const checkActive = () => {
+      if (this.disposed || generation !== this.generation) throw new Error("VLC media loading was cancelled.");
+    };
+    try {
+      const previousInput = (await this.status()).raw.currentplid;
+      checkActive();
+      await this.request("in_play", url);
+      const deadline = Date.now() + 15000;
+      let readyInput: number | undefined;
+      while (Date.now() < deadline) {
+        checkActive();
+        const current = await this.status();
+        checkActive();
+        const input = current.raw.currentplid;
+        const ready = current.duration > 0 && ["playing", "paused"].includes(current.raw.state);
+        // in_play may acknowledge while status still describes the previous input.
+        if (readyInput === undefined && ready && Number.isInteger(input) && input >= 0 && input !== previousInput) {
+          readyInput = input;
+          await this.pause();
+          checkActive();
+        } else if (readyInput !== undefined && input === readyInput && ready && current.raw.state === "paused") {
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error("VLC's new media did not become ready. Check the file and connection.");
+    } catch (error) {
+      if (generation === this.generation) this.close();
+      throw error;
+    }
+  }
   public async play(): Promise<void> { await this.request("pl_forceresume"); }
   public async pause(): Promise<void> { await this.request("pl_forcepause"); }
   public async seek(position: number, duration: number): Promise<void> {
     await this.request("seek", duration > 0 ? `${Math.min(100, Math.max(0, position / duration * 100)).toFixed(6)}%` : String(Math.floor(position)));
   }
-  public close(): void { this.child?.kill(); this.child = undefined; }
+  public close(): void { this.generation++; this.child?.kill(); this.child = undefined; }
   public dispose(): void { this.disposed = true; this.close(); }
 }

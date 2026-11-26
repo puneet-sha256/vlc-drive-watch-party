@@ -144,9 +144,20 @@ test("two actual VLC clients use separate media bridges and synchronize through 
     await api(host, "command", { action: "seek", position: 8 });
     await until(async () => Math.abs((await guestVlc.status()).position - 8) < 0.6, "paused backward seek");
     assert.equal((await guestVlc.status()).playing, false);
+    const previousInput = (await guestVlc.status()).raw.currentplid;
     await api(guest, "leave", {});
     await api(guest, "join", { invite });
-    await until(async () => Math.abs((await guestVlc.status()).position - 8) < 0.6, "rejoin current snapshot");
+    const newInput = (await guestVlc.status()).raw.currentplid;
+    assert.notEqual(newInput, previousInput, "rejoin must wait for the replacement VLC input");
+    await until(async () => {
+      const state = await guestVlc.status();
+      return state.raw.currentplid === newInput && !state.playing && Math.abs(state.position - 8) < 0.6;
+    }, "rejoin current snapshot");
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const settled = await guestVlc.status();
+    assert.equal(settled.raw.currentplid, newInput);
+    assert.equal(settled.playing, false);
+    assert.ok(Math.abs(settled.position - 8) < 0.6, "rejoined input must remain at the host's paused position");
     await api(host, "command", { action: "play" });
     await until(async () => (await guestVlc.status()).playing, "resumed guest");
     await host.close();

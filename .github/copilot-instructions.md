@@ -56,6 +56,8 @@ Preserve host-only command authorization, separate host/guest capabilities, boun
 
 Explicit host seeks bypass waiting, retain play/pause intent, clear pre-seek reports, and run as soon as received. Align a joining/reconnecting viewer once to the host's actual position, not an advancing theoretical clock while the host is held. Native VLC seek detection must not mistake buffering or delayed status responses for seeks. Keep the bounded playback event history free of credentials and invite keys. Do not claim sample/frame accuracy for polling-based VLC control.
 
+VLC's `in_play` response may still describe the previous input. Wait for a different valid `currentplid`, ready media metadata, and a confirmed pause before returning from `Vlc.open`. Keep that wait bounded and cancellable. Rejoin tests must check the replacement input and its settled position, not merely a transient matching timestamp.
+
 Read README.md for setup and limitations. The browser watch-party project in another folder is separate; do not change it or borrow its configured secrets automatically.
 
 For playback changes, run the actual two-VLC integration test, not only mocks. Tests require installed VLC and generate their own media. Do not skip missing-VLC failures and claim success. Keep production Google/tunnel validation distinct from synthetic local verification. Documentation-only changes do not require the playback test.
