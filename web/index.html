@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Picker's website-restricted key needs the origin, but never URL paths or credentials. -->
+<meta name="referrer" content="strict-origin">
+<title>VLC Drive Watch Party</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("clawpilotTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+*{box-sizing:border-box} body{margin:0;background:var(--cp-bg);color:var(--cp-text);font:16px "Segoe UI",Aptos,Calibri,-apple-system,BlinkMacSystemFont,sans-serif}
+main{max-width:840px;margin:40px auto;padding:24px} section{background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px;margin:20px 0}
+h1{font-size:32px;margin:8px 0} p{line-height:1.6} .muted{color:var(--cp-text-muted)} button,input{font:inherit;border-radius:.625rem;padding:12px;border:1px solid var(--cp-border);margin:4px 0}
+button{cursor:pointer;background:var(--cp-accent);color:var(--cp-accent-fg)}button:disabled{opacity:.5;cursor:default}
+input{background:var(--cp-surface-soft);color:var(--cp-text);width:100%} .row{display:flex;gap:12px;flex-wrap:wrap}code{font-family:Consolas,"Courier New",Courier,monospace;overflow-wrap:anywhere}
+#error{color:var(--cp-danger);white-space:pre-wrap}#status{color:var(--cp-success)}a{color:var(--cp-link)}
+</style>
+</head>
+<body><main>
+<p class="muted">Original video. Local VLC. Shared timing.</p><h1>VLC Drive Watch Party</h1>
+<p>Every viewer streams from Google Drive on their own computer. Only room and playback messages reach the shared server.</p>
+<p id="error" role="alert"></p>
+<section id="vlcSetup" hidden><h2>Install VLC first</h2>
+<p>This app controls your own desktop VLC. Install the standard Windows version from
+<a href="https://www.videolan.org/vlc/" target="_blank" rel="noreferrer">VideoLAN's official website</a>, then return here. Detection refreshes automatically.</p>
+</section>
+<section><h2>1. Google Drive</h2>
+<p id="setup" class="muted"></p>
+<div class="row"><button id="login">Sign in with Google</button><button id="choose">Choose video</button></div>
+<p id="file">No video selected.</p>
+</section>
+<section><h2>2. Watch together</h2>
+<p class="muted">The host creates a room. A guest pastes the complete invite here, on their own computer.</p>
+<details id="hostingSetup" hidden><summary>Hosting setup (not needed for joining)</summary>
+<p>Hosting uses your Microsoft or GitHub account to connect a sync-only Dev Tunnel. Your friend does not use your login. First-time setup downloads the hosting tool directly from Microsoft.</p>
+<p>By setting up hosting, you accept Microsoft's <a href="https://aka.ms/devtunnels/tos" target="_blank" rel="noreferrer">Dev Tunnel terms</a>.
+The service is for development/testing. Google Drive video never passes through it.</p>
+<div class="row"><button id="microsoft">Set up with Microsoft</button><button id="github">Set up with GitHub</button><button id="cancelLogin" hidden>Cancel sign-in</button></div>
+<p id="tunnelStatus" role="status"></p>
+<p id="devicePrompt" hidden><a id="deviceLink" target="_blank" rel="noreferrer">Open the sign-in page</a> and enter <strong><code id="deviceCode"></code></strong>. Keep this code private.</p>
+</details>
+<button id="host">Create party and open VLC</button>
+<label for="invite">Party invite</label><input id="invite" placeholder="Paste the complete invite including #room=...">
+<div class="row"><button id="join">Join party and open VLC</button><button id="copy">Copy invite</button><button id="leave">Leave party</button></div>
+<p id="status" role="status">Not in a party.</p><p id="network" class="muted"></p>
+</section>
+<section><h2>3. Playback</h2>
+<p>VLC displays the movie, audio tracks, subtitles and fullscreen controls. Host controls here also synchronize both players.</p>
+<div class="row"><button id="play">Play</button><button id="pause">Pause</button></div>
+<label for="seek">Seek to seconds</label><input id="seek" type="number" value="0" min="0" max="86400"><button id="seekButton">Seek</button>
+<p id="position"></p>
+<p id="playbackStatus" role="status"></p>
+<p class="muted">Timing is checked once per second. Viewers ahead by more than 3 seconds wait until others are within 1 second. Host seeks move everyone immediately. A viewer still behind after 30 seconds stops holding up the party.</p>
+<details><summary>Recent playback events</summary><p id="playbackEvents" class="muted"></p></details>
+</section>
+<p id="desktopHelp" class="muted" hidden>Closing this browser tab keeps the party running. Use the Watch Party tray icon to reopen it or quit.</p>
+<button id="quit" hidden>Quit Watch Party</button>
+</main>
+<script>
+const key = new URLSearchParams(location.hash.slice(1)).get('key') || sessionStorage.getItem('companion-key');
+if(key)sessionStorage.setItem('companion-key',key);
+history.replaceState(null,'',location.pathname);
+const $ = id => document.getElementById(id);
+let state, busy=false, pickerReady;
+async function api(path,body){
+ const response=await fetch('/api/'+path,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ const result=await response.json();if(!response.ok)throw new Error(result.error||'Request failed');return result;
+}
+async function refresh(){
+ if(busy)return;
+ try{
+ state=await api('state');
+ $('setup').textContent=state.configured?'Sign in with your own Google account and grant file access.':state.canQuit?'Application configuration is missing. Repair or reinstall Watch Party.':'Setup needed: add Desktop OAuth client, Picker key and project number to .env, then restart the companion. See README.md.';
+ $('file').textContent=state.selected?state.selected.name:'No video selected.';
+ $('status').textContent=state.room?(state.connected?'Sync connected':'Sync reconnecting')+' | '+(state.isHost?'Host':'Guest')+' | '+state.room.participants+' participants | '+state.room.roomId:'Not in a party.';
+ $('network').textContent=state.room?'Local Drive data received: '+(state.videoBytes/1048576).toFixed(1)+' MB. Video is not sent to the sync server.':(state.publicSyncUrl?'Remote invites use: '+state.publicSyncUrl:state.tunnel?'Hosting creates a remote invite automatically. To join, paste your friend\u0027s invite.':'Invites are local-only until PUBLIC_SYNC_URL is set to your sync server Dev Tunnel address.');
+ $('position').textContent=state.player?'VLC: '+state.player.position.toFixed(1)+' / '+state.player.duration.toFixed(1)+' seconds':'';
+ $('playbackStatus').textContent=state.playbackStatus||'';
+ $('playbackEvents').replaceChildren(...(state.playbackEvents||[]).slice().reverse().map(event=>{
+  const line=document.createElement('span');line.style.display='block';
+  line.textContent=new Date(event.at).toLocaleTimeString()+' - '+event.message;return line;
+ }));
+ for(const id of ['play','pause','seekButton'])$(id).disabled=!state.connected||!state.isHost;
+ $('choose').disabled=!state.signedIn;$('host').disabled=!state.selected||state.vlcAvailable===false;
+ $('join').disabled=!state.signedIn||state.vlcAvailable===false;
+ $('vlcSetup').hidden=state.vlcAvailable!==false;
+ $('quit').hidden=$('desktopHelp').hidden=!state.canQuit;
+ $('hostingSetup').hidden=!state.tunnel;
+ if(state.tunnel){
+  const tunnel=state.tunnel;
+  $('tunnelStatus').textContent=tunnel.message||({checking:'Checking hosting setup...',ready:'Hosting account connected. Choose a video and create a party.',hosting:'Sync-only tunnel running.', 'signed-out':'Sign in here only if you want to host a party.'}[tunnel.state]||tunnel.state);
+  for(const id of ['microsoft','github'])$(id).disabled=tunnel.authenticated||['checking','signing-in','starting','hosting'].includes(tunnel.state);
+  $('cancelLogin').hidden=tunnel.state!=='signing-in';
+  $('devicePrompt').hidden=!tunnel.loginUrl;
+  $('deviceLink').href=tunnel.loginUrl||'#';$('deviceCode').textContent=tunnel.userCode||'';
+  if(!tunnel.authenticated&&state.selected)$('hostingSetup').open=true;
+ }
+ if(state.error)$('error').textContent=state.error;
+ }catch(e){$('error').textContent=e.message}
+}
+async function act(action){
+ if(busy)return;busy=true;$('error').textContent='';
+ try{await action()}catch(e){$('error').textContent=e.message}finally{busy=false;await refresh()}
+}
+$('login').onclick=()=>act(async()=>{location.href=(await api('login',{})).url});
+$('choose').onclick=()=>act(async()=>{
+ if(!pickerReady)pickerReady=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://apis.google.com/js/api.js';script.onload=()=>gapi.load('picker',resolve);script.onerror=()=>reject(new Error('Google Picker could not load'));document.head.append(script)});
+ await pickerReady;const config=await api('picker');
+ const file=await new Promise((resolve,reject)=>{
+ const view=new google.picker.DocsView().setIncludeFolders(false).setMode(google.picker.DocsViewMode.LIST);
+ const picker=new google.picker.PickerBuilder().addView(view).setOAuthToken(config.token).setDeveloperKey(config.apiKey).setAppId(config.appId).setOrigin(location.origin).setCallback(data=>{
+ if(data.action===google.picker.Action.PICKED)resolve(data.docs[0]);
+ else if(data.action===google.picker.Action.CANCEL)resolve(null);
+ else if(data.action===google.picker.Action.ERROR)reject(new Error('Picker could not select the file'));
+ }).build();picker.setVisible(true)});
+ if(file)await api('select',{fileId:file.id});
+});
+$('host').onclick=()=>act(async()=>{$('host').textContent='Starting party...';try{$('invite').value=(await api('host',{})).invite}finally{$('host').textContent='Create party and open VLC'}});
+$('join').onclick=()=>act(()=>api('join',{invite:$('invite').value.trim()}));
+$('copy').onclick=()=>act(async()=>{if(!state?.invite)throw new Error('Create or join a party first');await navigator.clipboard.writeText(state.invite);$('invite').value=state.invite});
+$('leave').onclick=()=>act(()=>api('leave',{}));
+$('play').onclick=()=>act(()=>api('command',{action:'play'}));
+$('pause').onclick=()=>act(()=>api('command',{action:'pause'}));
+$('seekButton').onclick=()=>act(()=>api('command',{action:'seek',position:Number($('seek').value)}));
+$('microsoft').onclick=()=>act(()=>api('tunnel/login',{provider:'microsoft'}));
+$('github').onclick=()=>act(()=>api('tunnel/login',{provider:'github'}));
+$('cancelLogin').onclick=()=>act(()=>api('tunnel/cancel',{}));
+$('quit').onclick=async()=>{try{await api('quit',{});clearInterval(poll);$('status').textContent='Watch Party has closed. You can close this tab.'}catch(e){$('error').textContent=e.message}};
+refresh();const poll=setInterval(refresh,1000);
+</script></body></html>
